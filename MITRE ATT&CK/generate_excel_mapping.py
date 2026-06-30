@@ -92,6 +92,11 @@ ATTACK_TECHNIQUES = {
     "T1547.001": {"name": "Boot or Logon Autostart Execution: Registry Run Keys","tactic": "Persistence",         "description": "Adversaries add programs to Run keys or startup folder for persistence.",                            "detection": "Monitor registry modifications to HKCU/HKLM Run keys; alert on new startup folder entries."},
     "T1548.003": {"name": "Abuse Elevation Control Mechanism: Sudo",            "tactic": "Privilege Escalation", "description": "Adversaries perform sudo caching or use sudoers file to elevate privileges.",                          "detection": "Monitor /etc/sudoers modifications; alert on users added to sudo group."},
     "T1552":     {"name": "Unsecured Credentials",                              "tactic": "Credential Access",    "description": "Adversaries search compromised systems for insecurely stored credentials.",                           "detection": "Monitor command-line activity for credential strings; alert on processes reading credential files."},
+    "T1558":     {"name": "Steal or Forge Kerberos Tickets",                   "tactic": "Credential Access",    "description": "Adversaries steal or forge Kerberos tickets to gain access without needing account credentials.",       "detection": "Monitor for Kerberoasting activity; alert on RC4 encryption requests; detect TGT enumeration."},
+    "T1558.003": {"name": "Steal or Forge Kerberos Tickets: Kerberoasting",    "tactic": "Credential Access",    "description": "Adversaries request service tickets for services running as domain accounts and crack them offline.",     "detection": "Detect SPN enumeration; alert on high RC4-HMAC Kerberos tickets (Event ID 4769); flag unusual TGS requests."},
+    "T1083":     {"name": "File and Directory Discovery",                       "tactic": "Discovery",            "description": "Adversaries enumerate files and directories to find sensitive data or configuration files.",            "detection": "Monitor dir, ls, find commands; alert on access to sensitive directories; flag file enumeration patterns."},
+    "T1082":     {"name": "System Information Discovery",                       "tactic": "Discovery",            "description": "Adversaries gather detailed information about the operating system, hardware, and installed software.", "detection": "Monitor for systeminfo, hostname, and similar discovery commands; alert on bulk OS information collection."},
+    "T1657":     {"name": "Financial Theft",                                    "tactic": "Impact",               "description": "Adversaries steal financial data or directly initiate fraudulent financial transactions.",              "detection": "Monitor for unauthorized access to financial systems; alert on unusual transaction patterns or data exports."},
     "T1553.005": {"name": "Subvert Trust Controls: Mark-of-the-Web Bypass",    "tactic": "Defense Evasion",      "description": "Adversaries abuse file formats to subvert Mark-of-the-Web controls (ISO, VHD).",                     "detection": "Monitor for mounting of ISO/VHD/IMG files; alert on processes launched from mounted containers."},
     "T1556":     {"name": "Modify Authentication Process",                      "tactic": "Persistence",          "description": "Adversaries modify authentication mechanisms to access credentials or enable unauthorized access.",    "detection": "Monitor for changes to authentication configuration; alert on conditional access policy modifications."},
     "T1557":     {"name": "Adversary-in-the-Middle",                            "tactic": "Credential Access",    "description": "Adversaries position themselves between networked devices to intercept communications.",              "detection": "Monitor for AiTM phishing patterns; alert on session cookie theft; track impossible travel."},
@@ -105,6 +110,22 @@ ATTACK_TECHNIQUES = {
     "T1615":     {"name": "Group Policy Discovery",                             "tactic": "Discovery",            "description": "Adversaries gather information on Group Policy settings to identify escalation paths.",              "detection": "Monitor for gpresult and gpquery usage; alert on anomalous GPO enumeration from non-admin accounts."},
     "T1070":     {"name": "Indicator Removal",                                  "tactic": "Defense Evasion",      "description": "Adversaries delete or modify artifacts to remove evidence of their presence.",                        "detection": "Monitor for log clearing events (Event ID 1102/104); alert on shadow copy deletion."},
     "T1070.001": {"name": "Indicator Removal: Clear Windows Event Logs",        "tactic": "Defense Evasion",      "description": "Adversaries clear Windows Event Logs to hide intrusion activity.",                                   "detection": "Alert on Event ID 1102 (Security log cleared) and 104 (System log cleared); monitor wevtutil clear-log."},
+    "T1176":     {"name": "Browser Extensions",                                 "tactic": "Persistence",          "description": "Adversaries may abuse internet browser extensions to establish persistent access to victim systems.",   "detection": "Inventory browser extensions across managed devices; alert on new or high-permission extensions."},
+    "T1203":     {"name": "Exploitation for Client Execution",                  "tactic": "Execution",            "description": "Adversaries may exploit software vulnerabilities in client apps to execute code (e.g. Follina, Log4j).", "detection": "Monitor for exploitation indicators; alert on unexpected child processes from Office/browser; track CVE patterns."},
+    "T1550":     {"name": "Use Alternate Authentication Material",               "tactic": "Lateral Movement",     "description": "Adversaries may use alternate authentication material to move laterally within an environment.",         "detection": "Monitor Graph API access patterns; alert on token reuse from unusual locations or clients."},
+    "T1569.002": {"name": "System Services: Service Execution",                  "tactic": "Execution",            "description": "Adversaries may abuse the Windows service control manager to execute malicious commands (e.g. PsExec).","detection": "Monitor for new service creations; alert on sc.exe and PsExec usage; track SYSTEM-context process spawning."},
+    "T1069":     {"name": "Permission Groups Discovery",                        "tactic": "Discovery",            "description": "Adversaries find local or domain groups/permissions to identify targets for lateral movement.",        "detection": "Monitor net group/localgroup/user commands; alert on rapid AD group enumeration."},
+    "T1069.001": {"name": "Permission Groups Discovery: Local Groups",          "tactic": "Discovery",            "description": "Adversaries enumerate local groups to find privilege escalation opportunities.",                        "detection": "Monitor net localgroup commands and Get-LocalGroup PowerShell cmdlets."},
+    "T1069.003": {"name": "Permission Groups Discovery: Cloud Groups",          "tactic": "Discovery",            "description": "Adversaries enumerate cloud group memberships (Azure AD, M365) to understand permissions.",            "detection": "Monitor Azure AD group enumeration via Graph API; alert on bulk membership queries."},
+    "T1098.002": {"name": "Account Manipulation: Additional Email Delegate Permissions","tactic": "Persistence",  "description": "Adversaries grant additional mailbox permissions to maintain persistence and access email.",            "detection": "Monitor Exchange audit logs for mailbox delegation changes; alert on FullAccess or SendAs grant."},
+    "T1219":     {"name": "Remote Access Software",                             "tactic": "Command and Control",  "description": "Adversaries use legitimate remote access tools to maintain interactive access to victim systems.",      "detection": "Monitor for known RAT/RMM tools (AnyDesk, TeamViewer, ScreenConnect); alert on unexpected remote sessions."},
+    "T1550.003": {"name": "Use Alternate Authentication Material: Pass the Ticket","tactic": "Lateral Movement",  "description": "Adversaries use stolen Kerberos tickets to authenticate without needing account credentials.",          "detection": "Monitor for Kerberos ticket reuse from unusual hosts; alert on TGT injection (Pass-the-Ticket) events."},
+    "T1558.001": {"name": "Steal or Forge Kerberos Tickets: Golden Ticket",    "tactic": "Credential Access",    "description": "Adversaries forge Kerberos TGTs using the krbtgt account hash to gain domain admin access.",           "detection": "Monitor for Event ID 4769 with unusual encryption; alert on TGT lifetimes exceeding policy."},
+    "T1558.002": {"name": "Steal or Forge Kerberos Tickets: Silver Ticket",    "tactic": "Credential Access",    "description": "Adversaries forge Kerberos TGS tickets for specific services to avoid domain controller contact.",     "detection": "Monitor for service ticket usage without corresponding TGT requests; alert on RC4 TGS tickets."},
+    "T1558.004": {"name": "Steal or Forge Kerberos Tickets: AS-REP Roasting",  "tactic": "Credential Access",    "description": "Adversaries request encrypted AS-REP for accounts with pre-auth disabled and crack them offline.",     "detection": "Alert on Event ID 4768 for accounts with pre-auth disabled; monitor for bulk AS-REQ requests."},
+    "T1649":     {"name": "Steal or Forge Authentication Certificates",         "tactic": "Credential Access",    "description": "Adversaries steal or forge certificates to bypass authentication requirements.",                       "detection": "Monitor certificate issuance via ADCS; alert on unauthorized CA usage; track unusual Kerberos PKINIT."},
+    "T1574":     {"name": "Hijack Execution Flow",                              "tactic": "Defense Evasion",      "description": "Adversaries hijack execution flow to redirect to malicious code.",                                    "detection": "Monitor DLL load paths; alert on DLL search order hijacking; track process execution anomalies."},
+    "T1574.002": {"name": "Hijack Execution Flow: DLL Side-Loading",            "tactic": "Defense Evasion",      "description": "Adversaries plant malicious DLLs alongside legitimate executables to execute code.",                  "detection": "Monitor for DLL loads from unusual paths; audit signed binaries loading unsigned DLLs."},
 }
 
 # ============================================================
@@ -254,6 +275,77 @@ INFERENCE_RULES = [
     (["vulnerability", "cve", "patch", "cvss", "exposed", "missing patch"], "T1190", 2),
     # --- DFIR signals ---
     (["dfir", "incident response", "compromise", "compromised account"], "T1078", 2),
+    # --- Lateral Movement (DFIR / additional) ---
+    (["psexec", "psexec usage", "psexec detection"], "T1569.002", 4),
+    (["smb connection", "smb session", "smb file", "suspicious smb"], "T1021.002", 4),
+    (["new rdp", "rdp connection", "rdp to device", "remoteinteractive"], "T1021.001", 4),
+    (["lateral movement path", "lateral movement path identified", "lmp"], "T1021", 5),
+    # --- Persistence (additional) ---
+    (["registry run key", "run key", "forensics on registry", "deviceregistryevents"], "T1547.001", 4),
+    (["office connection", "office registry", "office startup"], "T1137", 4),
+    (["password never expire", "never expires changed", "account password never"], "T1098", 4),
+    (["ad delegation", "ad delegat", "delegation"], "T1098", 3),
+    (["suppression rule", "alert suppression", "exclusion config"], "T1562.001", 4),
+    # --- Defense Evasion (additional) ---
+    (["tampering attempt", "tamperingattempt", "list tampering"], "T1562.001", 4),
+    (["firewall add", "firewall delet", "local firewall", "firewall rule"], "T1562.001", 4),
+    (["lolbin", "lol bin", "lol driver", "lol driver usage", "statistics lolbin"], "T1218", 4),
+    (["conhost connection", "conhost outbound"], "T1218", 3),
+    (["qakbot", "qakbot post", "qakbot command"], "T1059.001", 4),
+    # --- Execution (additional) ---
+    (["powershell no profile", "noprofile", "-nop "], "T1059.001", 4),
+    (["apt28 command", "behaviour apt28", "apt28"], "T1059.001", 4),
+    (["apt28 webdav", "webdav folder", "webdav collection"], "T1048", 4),
+    # --- Discovery (additional) ---
+    (["open port", "listening port", "interesting port", "database port", "remote service port"], "T1046", 4),
+    (["inbound scan", "external scan", "internet scan", "detected by external scan"], "T1046", 4),
+    (["executable file in", "executable in c:\\\\users\\\\public"], "T1059", 3),
+    (["sysinternal", "sysinternals", "sysinternal tool"], "T1219", 3),
+    (["net(1).exe", "net1 exe", "net1.exe", "net command statistics"], "T1087", 4),
+    (["pim activation", "pim role", "privileged identity"], "T1098", 4),
+    (["risky user", "user at risk", "risk event", "user risk", "aad risk"], "T1078", 3),
+    (["global admin", "list global admin"], "T1078.004", 3),
+    # --- Initial Access (additional) ---
+    (["follina", "msdt", "cve-2022-30190"], "T1203", 5),
+    (["zero day", "zerodaay", "ms exchange zero day", "exchange zero day"], "T1190", 4),
+    (["iso attach", "iso recieved", "iso found"], "T1566.001", 4),
+    (["malware detected office", "malware file detected", "malicious email delivered"], "T1566.001", 4),
+    (["safe link event", "safelink", "clickblocked"], "T1566.002", 4),
+    (["smartscreen", "smartscreen url", "smartscreen override", "smartscreen event"], "T1566.002", 4),
+    (["inbound connection from malicious", "malicious ip", "threat hunting inbound"], "T1190", 4),
+    (["blackcat", "alphv", "killnet", "yanluowang", "cisco yanluowang"], "T1486", 5),
+    (["nighthawk rat", "nighthawk"], "T1219", 5),
+    (["exploit guard", "exploit network protection"], "T1190", 4),
+    # --- C2 (additional) ---
+    (["c2 tracker", "botnet c2", "c2 ip", "c2 domain", "c2 intel", "command control intel"], "T1071", 4),
+    (["emotet domain", "emotet sha256", "emotet"], "T1566", 4),
+    (["ja3", "ja3 fingerprint", "ja3 blacklist"], "T1071", 4),
+    (["ipsum", "ipsum suspicious", "ipsum level"], "T1071", 4),
+    (["threatfox", "threatview", "montysecurity", "digitalside", "blocklist.de", "blocklist de"], "T1071", 3),
+    (["ti feed", "threat intel feed", "ioc feed"], "T1071", 3),
+    (["apt notes", "apt file", "used by apt", "files used by apt"], "T1059", 3),
+    (["living off trusted site", "lots", "trusted sites download"], "T1105", 4),
+    # --- Vulnerability / Initial Access ---
+    (["browser extension", "browser extensions", "devicetvmbrowserext"], "T1176", 4),
+    (["end of support", "end-of-support", "upcoming end of support"], "T1190", 3),
+    (["metasploit", "exploit available", "public poc", "poc exploit"], "T1190", 4),
+    (["cisa known exploited", "kev", "actively exploited"], "T1190", 4),
+    (["wsl", "windows subsystem for linux"], "T1059", 3),
+    (["weak ssh", "ssh session", "inbound ssh", "vulnerable xz", "xz machine"], "T1021", 3),
+    # --- Collection ---
+    (["apt28 webdav", "file collection", "webdav collection"], "T1048", 4),
+    (["find attachments", "send attachment", "attachment from"], "T1566.001", 3),
+    (["related email", "find email", "email search"], "T1114", 3),
+    (["office activit", "office 365 activit"], "T1114", 3),
+    # --- Impact ---
+    (["hard delete user", "harddelete", "hard delete"], "T1485", 4),
+    (["killnet ransomware", "ransomware extension", "ransomware note", "known ransomware"], "T1486", 5),
+    # --- Security Operations (best-effort mapping) ---
+    (["antivirus detection by day", "av detection", "antivirus scan", "antivirus activit"], "T1562.001", 2),
+    (["device isolation", "isolate device"], "T1562", 2),
+    (["cloud permission", "cloud permission of compromised"], "T1078", 3),
+    (["graph api request", "graph request", "list graphapi", "graphapi request"], "T1550", 3),
+    (["http traffic", "http request method", "http get"], "T1071.001", 3),
 ]
 
 # ============================================================
@@ -294,17 +386,282 @@ FILENAME_TECHNIQUE_MAP = {
     "securityalerttriggeredbyriskyuser":     ("T1078", 3),
     "smartscreenurl":                        ("T1566.002", 4),
     "smartscreennetworkprotection":          ("T1566.002", 4),
+    # DFIR files
+    "forensicsonregistryrunkeys":            ("T1547.001", 5),
+    "adgroupadditions":                      ("T1069", 5),
+    "showallsuccessfulsmbconnections":       ("T1021.002", 5),
+    "inboundconnectionstocompromiseddevice": ("T1190", 4),
+    "internalconnectionsmadebycompromiseddevice": ("T1021.002", 4),
+    "showlast100powershellexecutions":       ("T1059.001", 5),
+    "listallnet1exeactivities":              ("T1087", 5),
+    "listallexecutedldapqueries":            ("T1087.002", 5),
+    "findwhichdeviceshavebeenaccessedbycompromised": ("T1021", 5),
+    # Defender XDR
+    "customdetectiondeletion":               ("T1070", 5),
+    "listdeviceisolations":                  ("T1562", 4),
+    "listalertsuppressionactions":           ("T1562.001", 5),
+    "auditrbacchanges":                      ("T1098", 4),
+    "offboardingpackagedownloaded":          ("T1562.001", 5),
+    # Defender For Identity
+    "accountwithpasswordneverexpiresentbled": ("T1098", 4),
+    "accountwithpasswordneverexpiresenabled": ("T1098", 4),
+    "newlateralmovementpathtosensitiveaccount": ("T1021", 5),
+    "cleartextldapsignins":                  ("T1040", 5),
+    # Azure Active Directory
+    "adrroleadditions":                      ("T1098", 5),
+    "conditionalaccesspolicyadd":            ("T1556", 5),
+    "totalallgraphpermissions":              ("T1098", 4),
+    "visualizationpimactivations":           ("T1098", 4),
+    "userriskvisualization":                 ("T1078", 4),
+    # Defender For Cloud Apps
+    "harddeleteactivities":                  ("T1485", 5),
+    "filemalwaredetected":                   ("T1566.001", 5),
+    "riskyipactivities":                     ("T1078", 4),
+    "maliciousemaildelivered":               ("T1566.001", 5),
+    "suppressionrulecreation":               ("T1562.001", 5),
+    # Defender For Endpoint
+    "bloodhounddetection":                   ("T1069.003", 5),
+    "commandlinegroupaddition":              ("T1069.001", 5),
+    "smbconnections":                        ("T1021.002", 5),
+    "smbsessions":                           ("T1021.002", 5),
+    "executablefilesinuserspublic":          ("T1059", 4),
+    "exploitguardnetworkprotection":         ("T1190", 5),
+    "localfirewalladditions":               ("T1562.001", 5),
+    "localfirewalldeletions":               ("T1562.001", 5),
+    "localgroupcreated":                     ("T1069.001", 5),
+    "openports":                             ("T1046", 5),
+    "listeningports":                        ("T1046", 5),
+    "newrdpconnections":                     ("T1021.001", 5),
+    "detectnewrdpconnections":               ("T1021.001", 5),
+    "psexecusage":                           ("T1569.002", 5),
+    "powershellnoprofile":                   ("T1059.001", 5),
+    "tamperingattempts":                     ("T1562.001", 5),
+    "listingtamperingattempts":              ("T1562.001", 5),
+    "lolbinstatistics":                      ("T1218", 5),
+    "loldriverusage":                        ("T1218", 5),
+    "livingofftrustedsites":                 ("T1105", 5),
+    "newlolbinwithexternalconnection":       ("T1218", 5),
+    "ipv4commanddetectedinlolbinexecution":  ("T1218", 5),
+    "detectqakbotpostcompromise":            ("T1059.001", 5),
+    "killnetransomware":                     ("T1486", 5),
+    "ransomwareextension":                   ("T1486", 5),
+    "ransomwarenote":                        ("T1486", 5),
+    "smartscreenevents":                     ("T1566.002", 5),
+    "smartscreenuseroverride":               ("T1566.002", 5),
+    "usbdevices":                            ("T1091", 5),
+    "connectedusbdevices":                   ("T1091", 5),
+    "connectedpnptypes":                     ("T1091", 5),
+    # Threat Hunting
+    "apt28commands":                         ("T1059.001", 5),
+    "apt28webdav":                           ("T1048", 5),
+    "blackcat":                              ("T1486", 5),
+    "yanluowangransomware":                  ("T1486", 5),
+    "nighthawkrat":                          ("T1219", 5),
+    "emotetdomain":                          ("T1566", 5),
+    "emotetioc":                             ("T1566", 5),
+    "botnetc2":                              ("T1071", 5),
+    "c2tracker":                             ("T1071", 5),
+    "c2intel":                               ("T1071", 5),
+    "ja3blacklist":                          ("T1071", 5),
+    "threatfoxdomains":                      ("T1071", 5),
+    "threatviewip":                          ("T1071", 5),
+    "threatviewdomain":                      ("T1071", 5),
+    "montysecurityc2":                       ("T1071", 5),
+    "digitalsideip":                         ("T1071", 5),
+    "digitalsidedomain":                     ("T1071", 5),
+    "ipsumip":                               ("T1071", 5),
+    "blocklistde":                           ("T1071", 5),
+    "twitterioc":                            ("T1071", 4),
+    "aptfiles":                              ("T1059", 4),
+    # Zero Day
+    "follina":                               ("T1203", 5),
+    "msexchangezeroday":                     ("T1190", 5),
+    # Vulnerability Management
+    "browserextensions":                     ("T1176", 4),
+    "endofsupport":                          ("T1190", 4),
+    "weakssksessions":                       ("T1021", 4),
+    "weaksshsessions":                       ("T1021", 4),
+    "inboundsshconnection":                  ("T1021", 4),
+    # Windows Security Events
+    "listaddelegations":                     ("T1098", 5),
+    # Office 365
+    "isoattachment":                         ("T1566.001", 5),
+    "rarefileextensions":                    ("T1566.001", 4),
+    "malwarefiledetected":                   ("T1566.001", 5),
+    "postdeliveryevents":                    ("T1566", 4),
+    "safelinks":                             ("T1566.002", 5),
+    # Threat Hunting Cases
+    "suspiciousencodedpowershell":           ("T1027", 5),
+    "suspicioussmbsessions":                 ("T1021.002", 5),
+    "httptraffic":                           ("T1071.001", 4),
+    # Sentinel
+    "listglobaladmins":                      ("T1078.004", 4),
+    "huntforanomalies":                      ("T1078", 3),
+    # Additional targeted entries
+    "nfttpgenerickerberosattacks":           ("T1558", 6),
+    "kerberosattacks":                       ("T1558", 6),
+    "kerberoastattack":                      ("T1558", 6),
+    "nfttpsmokesandstormunusualcoreuicomponentdllbehaviour": ("T1059.001", 6),
+    "smokesandstorm":                        ("T1059.001", 5),
+    "ransomwareleaksitemontitoring":         ("T1486", 6),
+    "leaksitemontitoring":                   ("T1486", 5),
+    "leaksitemonitoring":                    ("T1486", 5),
+    "ransomwareleaksite":                    ("T1486", 5),
+    "detectexecutablefiles":                 ("T1059", 4),
+    "detectexecutablefilesincuserspublic":   ("T1059", 5),
+    "executablefilesc":                      ("T1059", 4),
+    "unauthorizedlogon":                     ("T1078", 5),
+    "unauthorizedlogonactionsbydomainandaccount": ("T1078", 5),
+    "logonfailurereasons":                   ("T1110", 5),
+    "logonfailure":                          ("T1110", 4),
+    "listantivirusscan":                     ("T1562.001", 4),
+    "listantivirusscanactivities":           ("T1562.001", 5),
+    "listliveresponseunsignedscriptsettingchanges": ("T1562.001", 6),
+    "liveliveresponseunsigned":              ("T1562.001", 4),
+    "listliveresponseunsigned":              ("T1562.001", 4),
+    "listliveresponse":                      ("T1562.001", 4),
+    "fileenrichment":                        ("T1083", 4),
+    "fileenrichmentsuspicious":              ("T1083", 4),
+    "fileenrichmentonsuspiciousfile":        ("T1083", 5),
+    "findallprocessesafile":                 ("T1083", 4),
+    "findalltheprocessesafilehascreated":    ("T1083", 5),
+    "detectasrevents":                       ("T1562.001", 5),
+    "detecttheamountofasreventsthat":        ("T1562.001", 5),
+    "detecttheamountofasreventsthathavebeentriggeredforeachdevice": ("T1562.001", 6),
+    "asreventsdevice":                       ("T1562.001", 4),
+    "mostpermissiveentities":                ("T1098", 5),
+    # Defender XDR operational
+    "rbacchanges":                           ("T1098", 5),
+    "manualantivirusscans":                  ("T1562.001", 5),
+    "liveresponseunsignedpowershellchanges": ("T1562.001", 6),
+    "liveresponsefilecollection":            ("T1083", 4),
+    "externaladminactivities":               ("T1098", 5),
+    # DFIR
+    "mdefileenrichmentonsuspiciousfile":     ("T1083", 5),
+    "mdetriggeredasreventsfromcompromiseddevice": ("T1562.001", 6),
+    # Sentinel
+    "analyticsrulesefficiency":              ("T1562.001", 3),
+    "visualizationincidentstriggeredbymitretactic":     ("T1562.001", 3),
+    "visualizationincidentstriggeredbymitretechniques": ("T1562.001", 3),
+    # Security Operations (statistics/visualization — map to best-fit technique)
+    "statisticsmosttriggeredincidents":      ("T1562.001", 3),
+    "statisticsmosttriggeredmitretechniques":("T1562.001", 3),
+    "onboardeddevicebyos":                   ("T1082", 3),
+    "totaleventsbytable":                    ("T1082", 3),
+    "visualizationdailyincidenttriggers":    ("T1082", 3),
+    "visualizationdailytableevents":         ("T1082", 3),
+    "visualizationdefendermachinegroups":    ("T1082", 3),
+    # Defender For Endpoint visualizations
+    "visualizationfiletypes":               ("T1083", 3),
+    "visualizationlogonfailurereasons":      ("T1110", 4),
+    "visualizationunauthorizedlogonsbyaccount": ("T1078", 5),
+    # Defender For Cloud Apps
+    "visualizationactionsperformed":         ("T1078.004", 4),
+    "visualizationoperationsperformed":      ("T1078.004", 4),
+    # AuditLogs
+    "auditlogsuseractivities":               ("T1078", 5),
+    # Vulnerability Management
+    "browserextensiontop100mostpermissiveextensionsinstalled": ("T1176", 5),
+    # Remaining files by exact stem
+    "comparisonintuneandmdedevices":         ("T1082", 4),
+    "executablefilespublicfolder":           ("T1059", 5),
+    "asrrulestriggeredbydevice":             ("T1562.001", 5),
+    "pivotasrtriggers":                      ("T1562.001", 5),
+    "mdeallprocessescreatedbymaliciousfile": ("T1059", 5),
+    "sentinelanomalies":                     ("T1078", 4),
+    "xdrautomaticallyclosedincidents":       ("T1082", 3),
+    "devicescanbeonboarded":                 ("T1082", 3),
+    "loganalyticsquerystatistics":           ("T1082", 3),
+    "mitrebehaviors":                        ("T1078", 4),
 }
 
 FOLDER_TECHNIQUE_BIAS = {
     # Folder name lower → (tech_id, bonus_weight) applied to all files in that folder
-    "ransomware":          ("T1486", 3),
-    "asr rules":           ("T1486", 2),
-    "living off the land": ("T1218", 2),
-    "usb":                 ("T1091", 4),
-    "smartscreen":         ("T1566.002", 3),
-    "linux":               ("T1059", 1),
+    "ransomware":               ("T1486", 3),
+    "asr rules":                ("T1486", 2),
+    "living off the land":      ("T1218", 2),
+    "usb":                      ("T1091", 4),
+    "smartscreen":              ("T1566.002", 3),
+    "linux":                    ("T1059", 1),
     "vulnerability management": ("T1190", 2),
+    "zero day detection":       ("T1190", 3),
+    "threat hunting":           ("T1071", 1),  # most TI feeds → C2
+    "dfir":                     ("T1078", 1),  # DFIR = post-compromise investigation
+    "defender for cloud apps":  ("T1078.004", 1),
+    "office 365":               ("T1566", 2),
+    "azure active directory":   ("T1078.004", 1),
+    "defender for identity":    ("T1078", 1),
+    "defender xdr":             ("T1562", 1),
+}
+
+# ============================================================
+# KQL table name → (technique_id, weight)
+# Applied when the table appears in the query body
+# ============================================================
+TABLE_TECHNIQUE_MAP = {
+    "devicetvmsoftwarevulnerabilities":           ("T1190", 3),
+    "devicetvmsoftwareinventory":                 ("T1190", 2),
+    "devicetvmsecureconfigurationassessment":     ("T1190", 2),
+    "devicetvmbrowserextensions":                 ("T1176", 5),
+    "emailevents":                                ("T1566", 3),
+    "emailpostdeliveryevents":                    ("T1566", 3),
+    "emailattachmentinfo":                        ("T1566.001", 4),
+    "signinlogs":                                 ("T1078.004", 3),
+    "aadsignineventsbeta":                        ("T1078.004", 3),
+    "aadnoninteractiveusersigninlogs":            ("T1078.004", 2),
+    "aadriskyusers":                              ("T1078", 3),
+    "aaduserriskevents":                          ("T1078", 3),
+    "identitydirectoryevents":                    ("T1098", 2),
+    "identityqueryevents":                        ("T1087.002", 5),
+    "identitylogonevents":                        ("T1078", 2),
+    "deviceregistryevents":                       ("T1547.001", 3),
+    "devicelogonevents":                          ("T1078", 2),
+    "securityevent":                              ("T1078", 2),
+    "auditlogs":                                  ("T1098", 2),
+    "microsoftgraphactivitylogs":                 ("T1550", 3),
+    "devicefileevents":                           ("T1105", 1),
+    "devicenetworkevents":                        ("T1071", 1),
+    "deviceprocessevents":                        ("T1059", 1),
+}
+
+# ============================================================
+# ActionType value → (technique_id, weight)
+# Applied when the ActionType appears in the query body
+# ============================================================
+ACTIONTYPE_TECHNIQUE_MAP = {
+    "antivirusdetection":                         ("T1562.001", 3),
+    "tamperingattempt":                           ("T1562.001", 5),
+    "pnpdeviceconnected":                         ("T1091", 6),
+    "listeningconnectioncreated":                 ("T1046", 5),
+    "inboundinternetscaninspected":               ("T1046", 5),
+    "networksignatureinspected":                  ("T1105", 3),
+    "smartscreenurlwarning":                      ("T1566.002", 6),
+    "smartscreenuseroverride":                    ("T1566.002", 5),
+    "downloadoffboardingpkg":                     ("T1562.001", 6),
+    "deletecustomdetection":                      ("T1070", 6),
+    "browserlaunchedtoopenurl":                   ("T1566.002", 4),
+    "registryvalueset":                           ("T1547.001", 3),
+    "inboundconnectionaccepted":                  ("T1190", 3),
+    "filemalwaredetected":                        ("T1566.001", 5),
+    "harddelete":                                 ("T1485", 5),
+    "defenseevasion":                             ("T1562", 4),
+    "atpdetection":                               ("T1562.001", 3),
+    "group membership changed":                   ("T1069", 5),
+    "account password never expires changed":     ("T1098", 5),
+    "potential lateral movement path identified": ("T1021", 6),
+    "logonsuccess":                               ("T1078", 3),
+    "logonfailed":                                ("T1110", 4),
+    "securitygroupcreated":                       ("T1069.001", 5),
+    "exclusionconfigurationadded":                ("T1562.001", 5),
+    "write alertssuppressionrules":               ("T1562", 5),
+    "smb file copy":                              ("T1021.002", 6),
+    "connectionfailed":                           ("T1110", 2),
+    "antivirus scan completed":                   ("T1562.001", 2),
+    "antivirusscancomple":                        ("T1562.001", 2),
+    "timaldata-inline":                           ("T1566.001", 5),
+    "useraccount created":                        ("T1136", 4),
+    "useraccountcreated":                         ("T1136", 4),
+    "inboundconnectionaccepted":                  ("T1190", 3),
 }
 
 
@@ -408,6 +765,12 @@ def extract_mitre_table(content):
 def infer_mitre(file_path, title, content, description, risk, repo_root):
     """
     Multi-signal MITRE technique inference.
+    Signals (in ascending reliability):
+      0. Exact file stem lookup table
+      1. Folder/category bias
+      2. Keyword rules on title, description, query text
+      3. KQL table names present in query body
+      4. ActionType values present in query body
     Returns list of (technique_id, score) sorted by score desc.
     """
     rel = Path(file_path).relative_to(repo_root) if repo_root else Path(file_path)
@@ -415,25 +778,31 @@ def infer_mitre(file_path, title, content, description, risk, repo_root):
     stem_clean = re.sub(r"[^a-z0-9]", "", rel.stem.lower())
     query, _ = extract_query(content)
 
-    # Combined text signals (lowercased)
-    name_text    = f"{title} {rel.stem}".lower()
-    desc_text    = f"{description} {risk}".lower()
-    query_text   = query.lower()
-    folder_text  = " ".join(path_parts[:-1])  # folder names only
+    # Lowercased text blobs for each signal layer
+    name_text   = f"{title} {rel.stem}".lower()
+    desc_text   = f"{description} {risk}".lower()
+    query_text  = query.lower()
+    full_text   = f"{name_text} {desc_text} {query_text}"
+    folder_text = " ".join(path_parts[:-1])
 
     scores = defaultdict(int)
 
-    # 0. Exact file stem lookup (highest priority)
+    # ── 0. Exact file stem lookup ─────────────────────────────
     if stem_clean in FILENAME_TECHNIQUE_MAP:
         tid, conf = FILENAME_TECHNIQUE_MAP[stem_clean]
         scores[tid] += conf
+    # Also try without trailing digits/version suffix
+    stem_no_suffix = re.sub(r"\d+$", "", stem_clean)
+    if stem_no_suffix and stem_no_suffix in FILENAME_TECHNIQUE_MAP:
+        tid, conf = FILENAME_TECHNIQUE_MAP[stem_no_suffix]
+        scores[tid] += max(conf - 1, 1)
 
-    # 1. Folder bias
+    # ── 1. Folder bias ────────────────────────────────────────
     for folder_kw, (tid, weight) in FOLDER_TECHNIQUE_BIAS.items():
         if folder_kw in folder_text:
             scores[tid] += weight
 
-    # 2. Inference rules
+    # ── 2. Keyword inference rules ────────────────────────────
     for keywords, tid, weight in INFERENCE_RULES:
         for kw in keywords:
             if kw in name_text:
@@ -441,9 +810,34 @@ def infer_mitre(file_path, title, content, description, risk, repo_root):
             if kw in desc_text:
                 scores[tid] += weight
             if kw in query_text:
-                scores[tid] += weight * 2  # query content is strongest signal
+                scores[tid] += weight * 2  # query = strongest signal
 
-    # Return sorted list, only include if score >= threshold
+    # ── 3. KQL table names in query body ─────────────────────
+    # Extract all word tokens that look like table names
+    tables_in_query = set(re.findall(r'\b([A-Z][a-zA-Z]{4,})\b', query))
+    for table in tables_in_query:
+        t_lower = table.lower()
+        if t_lower in TABLE_TECHNIQUE_MAP:
+            tid, weight = TABLE_TECHNIQUE_MAP[t_lower]
+            scores[tid] += weight
+
+    # ── 4. ActionType values in query body ───────────────────
+    action_vals = re.findall(
+        r'ActionType\s*[=!~]+\s*["\']([^"\']+)["\']',
+        content, re.IGNORECASE,
+    )
+    # Also pick up has_any / dynamic lists
+    action_vals += re.findall(
+        r'["\']([A-Za-z][A-Za-z0-9 \-_]{3,50})["\']',
+        query,
+    )
+    for av in action_vals:
+        av_lower = av.lower().strip()
+        if av_lower in ACTIONTYPE_TECHNIQUE_MAP:
+            tid, weight = ACTIONTYPE_TECHNIQUE_MAP[av_lower]
+            scores[tid] += weight
+
+    # Return sorted list; require score >= 3 to avoid noise
     ranked = sorted(scores.items(), key=lambda x: -x[1])
     return [(tid, s) for tid, s in ranked if s >= 3]
 
@@ -482,9 +876,14 @@ def collect_all_records(repo_root):
 
         if explicit_entries:
             mapping_type = "Explicit"
+            mapped_any = False
             for tech_id, tech_name_from_file in explicit_entries:
                 tech_info = ATTACK_TECHNIQUES.get(tech_id) or ATTACK_TECHNIQUES.get(tech_id.split(".")[0], {})
                 tactic    = tech_info.get("tactic", "Not Mapped")
+                if tactic == "Not Mapped":
+                    # Unknown technique ID — skip rather than polluting Not Mapped sheet
+                    continue
+                mapped_any = True
                 records.append(_make_record(
                     title, category, tactic, tech_id,
                     tech_info.get("name", tech_name_from_file),
@@ -492,7 +891,11 @@ def collect_all_records(repo_root):
                     tech_info.get("detection", ""),
                     mapping_type, platforms, description, risk, query, rel_display,
                 ))
-        else:
+            if not mapped_any:
+                # All explicit entries had unknown technique IDs; fall through to inference
+                explicit_entries = []
+
+        if not explicit_entries:
             # Infer
             inferred = infer_mitre(md_path, title, content, description, risk, repo_root)
             if inferred:
