@@ -849,6 +849,42 @@ def infer_mitre(file_path, title, content, description, risk, repo_root):
 SKIP_FILES = {"README.md", "DetectionTemplate.md", "Mapping.md", "TheArtOfKnowingYourData.md"}
 SKIP_DIRS  = {"MITRE ATT&CK", "Functions", "KQL Regex", "Learning", "MISP", "Fun"}
 
+# ── Patterns that classify a file as IOC Hunt ────────────────
+IOC_TITLE_PREFIXES = ("ioc", "ioc -", "ioc–", "ioc:")
+IOC_STEM_PREFIXES  = ("ioc",)
+
+# ── Patterns that classify a file as Operational (no ATT&CK) ─
+OPERATIONAL_STEM_PATTERNS = {
+    "statistics", "visualization", "visualis", "visualize",
+    "onboardeddevice", "totaleventsbytable", "xdrautomaticallyclosed",
+    "devicescanbeonboarded", "comparisonintuneandmde",
+    "loganalyticsquerystatistics", "analyticsrulesefficiency",
+    "statisticsmosttriggered", "queryexecution",
+}
+
+
+def classify_query_type(title, stem_clean, category, content):
+    """Return one of: 'Detection', 'IOC Hunt', 'Operational', 'DFIR'."""
+    title_lower = title.lower().strip()
+    # DFIR folder
+    if category.lower() == "dfir":
+        return "DFIR"
+    # IOC: title or file stem starts with IOC
+    if any(title_lower.startswith(p) for p in IOC_TITLE_PREFIXES):
+        return "IOC Hunt"
+    if any(stem_clean.startswith(p) for p in IOC_STEM_PREFIXES):
+        return "IOC Hunt"
+    # Operational: visualization / statistics / inventory files
+    if any(stem_clean.startswith(p) for p in OPERATIONAL_STEM_PATTERNS):
+        return "Operational"
+    # Explicitly non-behavioral by title keywords
+    op_title_kws = ("visuali", "statistics", "pivot table", "pivot -", "onboarded devices",
+                    "automatically closed", "query execution", "analytics rules efficiency",
+                    "comparison between devices", "total events by table")
+    if any(kw in title_lower for kw in op_title_kws):
+        return "Operational"
+    return "Detection"
+
 
 def collect_all_records(repo_root):
     repo_root = Path(repo_root)
@@ -871,7 +907,20 @@ def collect_all_records(repo_root):
         query, _    = extract_query(content)
         rel_display = str(md_path.relative_to(repo_root))
         category    = md_path.relative_to(repo_root).parts[0]
+        stem_clean  = re.sub(r"[^a-z0-9]", "", md_path.stem.lower())
 
+        query_type = classify_query_type(title, stem_clean, category, content)
+
+        # ── IOC Hunt / Operational / DFIR: no ATT&CK inference ──
+        if query_type != "Detection":
+            records.append(_make_record(
+                title, category, query_type, "", "", "", "",
+                query_type, platforms, description, risk, query, rel_display,
+                query_type=query_type,
+            ))
+            continue
+
+        # ── Detection: try explicit table first ──────────────────
         explicit_entries = extract_mitre_table(content)
 
         if explicit_entries:
@@ -881,7 +930,6 @@ def collect_all_records(repo_root):
                 tech_info = ATTACK_TECHNIQUES.get(tech_id) or ATTACK_TECHNIQUES.get(tech_id.split(".")[0], {})
                 tactic    = tech_info.get("tactic", "Not Mapped")
                 if tactic == "Not Mapped":
-                    # Unknown technique ID — skip rather than polluting Not Mapped sheet
                     continue
                 mapped_any = True
                 records.append(_make_record(
@@ -890,17 +938,15 @@ def collect_all_records(repo_root):
                     tech_info.get("description", ""),
                     tech_info.get("detection", ""),
                     mapping_type, platforms, description, risk, query, rel_display,
+                    query_type=query_type,
                 ))
             if not mapped_any:
-                # All explicit entries had unknown technique IDs; fall through to inference
                 explicit_entries = []
 
         if not explicit_entries:
-            # Infer
             inferred = infer_mitre(md_path, title, content, description, risk, repo_root)
             if inferred:
                 mapping_type = "Inferred"
-                # Take top-3 inferred techniques
                 for tech_id, score in inferred[:3]:
                     tech_info = ATTACK_TECHNIQUES.get(tech_id) or ATTACK_TECHNIQUES.get(tech_id.split(".")[0], {})
                     tactic    = tech_info.get("tactic", "Not Mapped")
@@ -910,29 +956,33 @@ def collect_all_records(repo_root):
                         tech_info.get("description", ""),
                         tech_info.get("detection", ""),
                         f"Inferred (score={score})", platforms, description, risk, query, rel_display,
+                        query_type=query_type,
                     ))
             else:
-                # Truly unmapped
                 records.append(_make_record(
                     title, category, "Not Mapped", "", "", "", "",
                     "Not Mapped", platforms, description, risk, query, rel_display,
+                    query_type=query_type,
                 ))
 
     return records
 
 
 def _make_record(title, category, tactic, tech_id, tech_name, tech_desc, detection,
-                 mapping_type, platforms, description, risk, query, rel_display):
-    d3   = D3FEND_BY_TACTIC.get(tactic, D3FEND_BY_TACTIC["Not Mapped"])
-    slug = TACTIC_SLUG.get(tactic, "unmapped")
+                 mapping_type, platforms, description, risk, query, rel_display,
+                 query_type="Detection"):
+    is_detection = query_type == "Detection"
+    d3   = D3FEND_BY_TACTIC.get(tactic, D3FEND_BY_TACTIC["Not Mapped"]) if is_detection else {}
+    slug = TACTIC_SLUG.get(tactic, query_type.lower().replace(" ", "")) if is_detection else query_type.lower().replace(" ", "")
     canonical = f"{slug}-{slugify(title)}"
     tech_url  = (f"https://attack.mitre.org/techniques/{tech_id.replace('.', '/')}" if tech_id else "")
     return {
         "Canonical Name":               canonical,
         "Query Title":                  title,
+        "Query Type":                   query_type,
         "Category":                     category,
-        "MITRE Tactic":                 tactic,
-        "Tactic ID":                    TACTIC_IDS.get(tactic, ""),
+        "MITRE Tactic":                 tactic if is_detection else "",
+        "Tactic ID":                    TACTIC_IDS.get(tactic, "") if is_detection else "",
         "Technique ID":                 tech_id,
         "Technique Name":               tech_name,
         "Technique Description":        tech_desc,
@@ -940,7 +990,7 @@ def _make_record(title, category, tactic, tech_id, tech_name, tech_desc, detecti
         "Detection Strategy (ATT&CK)":  detection,
         "D3FEND Primary Strategy":      d3.get("primary", ""),
         "D3FEND Defensive Techniques":  "\n".join(d3.get("techniques", [])),
-        "D3FEND URL":                   "https://d3fend.mitre.org/",
+        "D3FEND URL":                   "https://d3fend.mitre.org/" if d3 else "",
         "Mapping Type":                 mapping_type,
         "Platforms":                    ", ".join(platforms),
         "Query Description":            description,
@@ -955,7 +1005,7 @@ def _make_record(title, category, tactic, tech_id, tech_name, tech_desc, detecti
 # ============================================================
 
 COLUMNS = [
-    "Canonical Name", "Query Title", "Category",
+    "Canonical Name", "Query Title", "Query Type", "Category",
     "MITRE Tactic", "Tactic ID", "Technique ID", "Technique Name",
     "Technique Description", "ATT&CK Technique URL",
     "Detection Strategy (ATT&CK)",
@@ -967,7 +1017,7 @@ COLUMNS = [
 ]
 
 COLUMN_WIDTHS = {
-    "Canonical Name": 45, "Query Title": 42, "Category": 25,
+    "Canonical Name": 45, "Query Title": 42, "Query Type": 16, "Category": 25,
     "MITRE Tactic": 22, "Tactic ID": 12, "Technique ID": 14, "Technique Name": 44,
     "Technique Description": 68, "ATT&CK Technique URL": 55,
     "Detection Strategy (ATT&CK)": 68,
@@ -976,6 +1026,14 @@ COLUMN_WIDTHS = {
     "Query Description": 68, "Risk": 52,
     "Query (KQL)": 80,
     "File Path": 58,
+}
+
+# Colours for Query Type cells
+QUERY_TYPE_COLORS = {
+    "Detection":   "FF2F4F8F",  # navy  (reuses tactic header colour)
+    "IOC Hunt":    "FFFD7E14",  # orange
+    "Operational": "FF6C757D",  # grey
+    "DFIR":        "FF6F42C1",  # purple
 }
 
 
@@ -998,13 +1056,18 @@ def write_data_rows(ws, records, columns, start_row=2):
     wrap     = Alignment(vertical="top", wrap_text=True)
     alt_fill = PatternFill("solid", fgColor="FFF8F9FA")
     for ri, rec in enumerate(records, start=start_row):
-        tactic    = rec.get("MITRE Tactic", "Not Mapped")
-        tac_color = TACTIC_COLORS.get(tactic, "FF868E96")
+        tactic     = rec.get("MITRE Tactic", "")
+        tac_color  = TACTIC_COLORS.get(tactic, "FF868E96")
+        query_type = rec.get("Query Type", "Detection")
+        qt_color   = QUERY_TYPE_COLORS.get(query_type, "FF2F4F8F")
         for ci, col in enumerate(columns, start=1):
             val = rec.get(col, "")
             c   = ws.cell(row=ri, column=ci, value=val)
             c.alignment, c.border = wrap, thin_border()
-            if col == "MITRE Tactic":
+            if col == "Query Type":
+                c.fill = PatternFill("solid", fgColor=qt_color)
+                c.font = Font(color="FFFFFFFF", bold=True)
+            elif col == "MITRE Tactic" and tactic:
                 c.fill = PatternFill("solid", fgColor=tac_color)
                 c.font = Font(color="FFFFFFFF", bold=True)
             elif col == "Mapping Type":
@@ -1032,22 +1095,29 @@ def write_excel(records, output_path):
     ws_sum["A1"].font = tf
     ws_sum["A2"] = "Repository: Hunting-Queries-Detection-Rules (github.com/Bert-JanP)"
     unique_files = len(set(r["File Path"] for r in records))
-    explicit  = sum(1 for r in records if r["Mapping Type"] == "Explicit")
-    inferred  = sum(1 for r in records if "Inferred" in str(r["Mapping Type"]))
-    unmapped  = sum(1 for r in records if r["Mapping Type"] == "Not Mapped")
+    det_recs  = [r for r in records if r["Query Type"] == "Detection"]
+    ioc_recs  = [r for r in records if r["Query Type"] == "IOC Hunt"]
+    ops_recs  = [r for r in records if r["Query Type"] == "Operational"]
+    dfir_recs = [r for r in records if r["Query Type"] == "DFIR"]
+    explicit  = sum(1 for r in det_recs if r["Mapping Type"] == "Explicit")
+    inferred  = sum(1 for r in det_recs if "Inferred" in str(r["Mapping Type"]))
+    unmapped  = sum(1 for r in det_recs if r["Mapping Type"] == "Not Mapped")
     ws_sum["A3"] = f"Total Query Files Scanned: {unique_files}"
     ws_sum["A4"] = f"Total Rows (file × technique): {len(records)}"
-    ws_sum["A5"] = f"Explicit MITRE Mapping: {explicit} rows"
-    ws_sum["A6"] = f"Inferred MITRE Mapping: {inferred} rows"
-    ws_sum["A7"] = f"Not Mapped: {unmapped} rows"
-    ws_sum["A9"]  = "Tactic";          ws_sum["A9"].fill  = PatternFill("solid", fgColor="FF2F4F8F");  ws_sum["A9"].font  = Font(bold=True, color="FFFFFFFF")
-    ws_sum["B9"]  = "Total Rows";      ws_sum["B9"].fill  = PatternFill("solid", fgColor="FF2F4F8F");  ws_sum["B9"].font  = Font(bold=True, color="FFFFFFFF")
-    ws_sum["C9"]  = "Unique Files";    ws_sum["C9"].fill  = PatternFill("solid", fgColor="FF2F4F8F");  ws_sum["C9"].font  = Font(bold=True, color="FFFFFFFF")
-    tactic_rows  = Counter(r["MITRE Tactic"] for r in records)
+    ws_sum["A5"] = f"Detections — Explicit MITRE Mapping: {explicit} rows"
+    ws_sum["A6"] = f"Detections — Inferred MITRE Mapping: {inferred} rows"
+    ws_sum["A7"] = f"Detections — Not Mapped: {unmapped} rows"
+    ws_sum["A8"] = f"IOC Hunt queries: {len(set(r['File Path'] for r in ioc_recs))} files"
+    ws_sum["A9"] = f"Operational queries: {len(set(r['File Path'] for r in ops_recs))} files"
+    ws_sum["A10"] = f"DFIR queries: {len(set(r['File Path'] for r in dfir_recs))} files"
+    ws_sum["A12"]  = "Tactic";          ws_sum["A12"].fill  = PatternFill("solid", fgColor="FF2F4F8F");  ws_sum["A12"].font  = Font(bold=True, color="FFFFFFFF")
+    ws_sum["B12"]  = "Total Rows";      ws_sum["B12"].fill  = PatternFill("solid", fgColor="FF2F4F8F");  ws_sum["B12"].font  = Font(bold=True, color="FFFFFFFF")
+    ws_sum["C12"]  = "Unique Files";    ws_sum["C12"].fill  = PatternFill("solid", fgColor="FF2F4F8F");  ws_sum["C12"].font  = Font(bold=True, color="FFFFFFFF")
+    tactic_rows  = Counter(r["MITRE Tactic"] for r in det_recs)
     tactic_files = defaultdict(set)
-    for r in records:
+    for r in det_recs:
         tactic_files[r["MITRE Tactic"]].add(r["File Path"])
-    for i, tactic in enumerate(TACTIC_ORDER, start=10):
+    for i, tactic in enumerate(TACTIC_ORDER, start=13):
         if tactic not in tactic_rows: continue
         col = TACTIC_COLORS.get(tactic, "FF868E96")
         ws_sum.cell(row=i, column=1, value=tactic).fill = PatternFill("solid", fgColor=col)
@@ -1065,14 +1135,62 @@ def write_excel(records, output_path):
     ws_all.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}1"
     set_col_widths(ws_all, COLUMNS)
 
-    # ── MITRE Mapped ─────────────────────────────────────────
-    mapped = [r for r in records if r["MITRE Tactic"] != "Not Mapped"]
+    # ── MITRE Mapped (detections only) ───────────────────────
+    mapped = [r for r in det_recs if r["MITRE Tactic"] != "Not Mapped"]
     ws_map = wb.create_sheet("MITRE Mapped")
     write_header_row(ws_map, 1, COLUMNS, "FF2F4F8F")
     write_data_rows(ws_map, mapped, COLUMNS)
     ws_map.freeze_panes = "A2"
     ws_map.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}1"
     set_col_widths(ws_map, COLUMNS)
+
+    # ── IOC Hunt sheet ────────────────────────────────────────
+    if ioc_recs:
+        ws_ioc = wb.create_sheet("IOC Hunt")
+        ws_ioc.merge_cells(f"A1:{get_column_letter(len(COLUMNS))}1")
+        b = ws_ioc["A1"]
+        b.value = f"IOC Hunt Queries  |  {len(ioc_recs)} entries  |  Indicator-based lookups — not mapped to ATT&CK techniques"
+        b.font  = Font(name="Calibri", size=13, bold=True, color="FFFFFFFF")
+        b.fill  = PatternFill("solid", fgColor="FFFD7E14")
+        b.alignment = Alignment(horizontal="center", vertical="center")
+        ws_ioc.row_dimensions[1].height = 26
+        write_header_row(ws_ioc, 2, COLUMNS, "FFFD7E14")
+        write_data_rows(ws_ioc, ioc_recs, COLUMNS, start_row=3)
+        ws_ioc.freeze_panes = "A3"
+        ws_ioc.auto_filter.ref = f"A2:{get_column_letter(len(COLUMNS))}2"
+        set_col_widths(ws_ioc, COLUMNS)
+
+    # ── Operational sheet ─────────────────────────────────────
+    if ops_recs:
+        ws_ops = wb.create_sheet("Operational")
+        ws_ops.merge_cells(f"A1:{get_column_letter(len(COLUMNS))}1")
+        b = ws_ops["A1"]
+        b.value = f"Operational / Visualization Queries  |  {len(ops_recs)} entries  |  Dashboard & statistics — not mapped to ATT&CK techniques"
+        b.font  = Font(name="Calibri", size=13, bold=True, color="FFFFFFFF")
+        b.fill  = PatternFill("solid", fgColor="FF6C757D")
+        b.alignment = Alignment(horizontal="center", vertical="center")
+        ws_ops.row_dimensions[1].height = 26
+        write_header_row(ws_ops, 2, COLUMNS, "FF6C757D")
+        write_data_rows(ws_ops, ops_recs, COLUMNS, start_row=3)
+        ws_ops.freeze_panes = "A3"
+        ws_ops.auto_filter.ref = f"A2:{get_column_letter(len(COLUMNS))}2"
+        set_col_widths(ws_ops, COLUMNS)
+
+    # ── DFIR sheet ────────────────────────────────────────────
+    if dfir_recs:
+        ws_dfir = wb.create_sheet("DFIR")
+        ws_dfir.merge_cells(f"A1:{get_column_letter(len(COLUMNS))}1")
+        b = ws_dfir["A1"]
+        b.value = f"DFIR Forensic Queries  |  {len(dfir_recs)} entries  |  Post-compromise investigation — behavioural where mappable"
+        b.font  = Font(name="Calibri", size=13, bold=True, color="FFFFFFFF")
+        b.fill  = PatternFill("solid", fgColor="FF6F42C1")
+        b.alignment = Alignment(horizontal="center", vertical="center")
+        ws_dfir.row_dimensions[1].height = 26
+        write_header_row(ws_dfir, 2, COLUMNS, "FF6F42C1")
+        write_data_rows(ws_dfir, dfir_recs, COLUMNS, start_row=3)
+        ws_dfir.freeze_panes = "A3"
+        ws_dfir.auto_filter.ref = f"A2:{get_column_letter(len(COLUMNS))}2"
+        set_col_widths(ws_dfir, COLUMNS)
 
     # ── Per-tactic sheets ─────────────────────────────────────
     by_tactic = defaultdict(list)
@@ -1107,11 +1225,12 @@ def write_excel(records, output_path):
 
     wb.save(output_path)
     print(f"\n✓  Saved: {output_path}")
-    print(f"   Total rows   : {len(records)}")
-    print(f"   Explicit     : {explicit}")
-    print(f"   Inferred     : {inferred}")
-    print(f"   Not Mapped   : {unmapped}")
-    print(f"   Sheets       : {len(wb.sheetnames)}")
+    print(f"   Total rows      : {len(records)}")
+    print(f"   Detections      : {len(det_recs)}  (Explicit={explicit}, Inferred={inferred}, Not Mapped={unmapped})")
+    print(f"   IOC Hunt        : {len(ioc_recs)}")
+    print(f"   Operational     : {len(ops_recs)}")
+    print(f"   DFIR            : {len(dfir_recs)}")
+    print(f"   Sheets          : {len(wb.sheetnames)}")
 
 
 # ============================================================
